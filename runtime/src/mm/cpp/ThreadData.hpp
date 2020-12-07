@@ -8,6 +8,7 @@
 
 #include <pthread.h>
 
+#include "ObjectFactory.hpp"
 #include "GlobalsRegistry.hpp"
 #include "StableRefRegistry.hpp"
 #include "ThreadLocalStorage.hpp"
@@ -21,7 +22,10 @@ namespace mm {
 class ThreadData final : private Pinned {
 public:
     ThreadData(pthread_t threadId) noexcept :
-        threadId_(threadId), globalsThreadQueue_(GlobalsRegistry::Instance()), stableRefThreadQueue_(StableRefRegistry::Instance()) {}
+        threadId_(threadId),
+        globalsThreadQueue_(GlobalsRegistry::Instance()),
+        stableRefThreadQueue_(StableRefRegistry::Instance()),
+        objectFactoryThreadQueue_(ObjectFactory::Instance()) {}
 
     ~ThreadData() = default;
 
@@ -33,11 +37,14 @@ public:
 
     StableRefRegistry::ThreadQueue& stableRefThreadQueue() noexcept { return stableRefThreadQueue_; }
 
+    ObjectFactory::ThreadQueue& objectFactoryThreadQueue() noexcept { return objectFactoryThreadQueue_; }
+
 private:
     const pthread_t threadId_;
     GlobalsRegistry::ThreadQueue globalsThreadQueue_;
     ThreadLocalStorage tls_;
     StableRefRegistry::ThreadQueue stableRefThreadQueue_;
+    ObjectFactory::ThreadQueue objectFactoryThreadQueue_;
 };
 
 } // namespace mm
