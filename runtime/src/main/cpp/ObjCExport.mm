@@ -52,6 +52,7 @@ struct KotlinToObjCMethodAdapter {
   const char* selector;
   MethodNameHash nameSignature;
   ClassId interfaceId;
+  int itableSize;
   int itableIndex;
   int vtableIndex;
   const void* kotlinImpl;
@@ -922,6 +923,7 @@ static const TypeInfo* createTypeInfo(Class clazz, const TypeInfo* superType, co
     if (typeAdapter == nullptr) continue;
 
     if (superITable != nullptr) {
+      // The interface vtable has to be created always in order for type checks to work.
       auto interfaceId = typeInfo->classId_;
       int interfaceVTableSize = typeAdapter->kotlinItableSize;
       RuntimeAssert(interfaceVTableSize >= 0, "");
@@ -943,8 +945,21 @@ static const TypeInfo* createTypeInfo(Class clazz, const TypeInfo* superType, co
       insertOrReplace(methodTable, adapter->nameSignature, const_cast<void*>(adapter->kotlinImpl));
       RuntimeAssert(adapter->vtableIndex == -1, "");
 
-      if (adapter->itableIndex != -1 && superITable != nullptr)
+      if (adapter->itableIndex != -1 && superITable != nullptr) {
+        // Because of fake overrides [adapter->interfaceId] might not be equal to [typeInfo->classId_].
+        auto interfaceId = adapter->interfaceId;
+        int interfaceVTableSize = adapter->itableSize;
+        RuntimeAssert(interfaceVTableSize >= 0, "");
+        auto interfaceVTablesIt = interfaceVTables.find(interfaceId);
+        if (interfaceVTablesIt == interfaceVTables.end()) {
+          interfaceVTables.emplace(interfaceId, KStdVector<VTableElement>(interfaceVTableSize));
+        } else {
+          auto const& interfaceVTable = interfaceVTablesIt->second;
+          RuntimeAssert(interfaceVTable.size() == static_cast<size_t>(interfaceVTableSize), "");
+        }
+
         addToITable(adapter->interfaceId, adapter->itableIndex, adapter->kotlinImpl);
+      }
     }
   }
 
