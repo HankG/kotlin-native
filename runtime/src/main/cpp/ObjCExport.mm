@@ -888,6 +888,8 @@ static const TypeInfo* createTypeInfo(Class clazz, const TypeInfo* superType, co
     supers.push_back(t);
   }
 
+  bool itableEqualsSuper = true;
+
   auto addToITable = [&interfaceVTables](ClassId interfaceId, int methodIndex, VTableElement entry) {
     RuntimeAssert(interfaceId != kInvalidInterfaceId, "");
     auto interfaceVTableIt = interfaceVTables.find(interfaceId);
@@ -897,7 +899,18 @@ static const TypeInfo* createTypeInfo(Class clazz, const TypeInfo* superType, co
     interfaceVTable[methodIndex] = entry;
   };
 
-  bool itableEqualsSuper = true;
+  auto addITable = [&interfaceVTables, &itableEqualsSuper](ClassId interfaceId, int itableSize) {
+    RuntimeAssert(itableSize >= 0, "");
+    auto interfaceVTablesIt = interfaceVTables.find(interfaceId);
+    if (interfaceVTablesIt == interfaceVTables.end()) {
+      itableEqualsSuper = false;
+      interfaceVTables.emplace(interfaceId, KStdVector<VTableElement>(itableSize));
+    } else {
+      auto const& interfaceVTable = interfaceVTablesIt->second;
+      RuntimeAssert(interfaceVTable.size() == static_cast<size_t>(itableSize), "");
+    }
+  };
+
   for (const TypeInfo* t : supers) {
     const ObjCTypeAdapter* typeAdapter = getTypeAdapter(t);
     if (typeAdapter == nullptr) continue;
@@ -924,17 +937,7 @@ static const TypeInfo* createTypeInfo(Class clazz, const TypeInfo* superType, co
 
     if (superITable != nullptr) {
       // The interface vtable has to be created always in order for type checks to work.
-      auto interfaceId = typeInfo->classId_;
-      int interfaceVTableSize = typeAdapter->kotlinItableSize;
-      RuntimeAssert(interfaceVTableSize >= 0, "");
-      auto interfaceVTablesIt = interfaceVTables.find(interfaceId);
-      if (interfaceVTablesIt == interfaceVTables.end()) {
-        itableEqualsSuper = false;
-        interfaceVTables.emplace(interfaceId, KStdVector<VTableElement>(interfaceVTableSize));
-      } else {
-        auto const& interfaceVTable = interfaceVTablesIt->second;
-        RuntimeAssert(interfaceVTable.size() == static_cast<size_t>(interfaceVTableSize), "");
-      }
+      addITable(typeInfo->classId_, typeAdapter->kotlinItableSize);
     }
 
     for (int i = 0; i < typeAdapter->reverseAdapterNum; ++i) {
@@ -946,18 +949,9 @@ static const TypeInfo* createTypeInfo(Class clazz, const TypeInfo* superType, co
       RuntimeAssert(adapter->vtableIndex == -1, "");
 
       if (adapter->itableIndex != -1 && superITable != nullptr) {
-        // Because of fake overrides [adapter->interfaceId] might not be equal to [typeInfo->classId_].
+        // In general, [adapter->interfaceId] might not be equal to [typeInfo->classId_].
         auto interfaceId = adapter->interfaceId;
-        int interfaceVTableSize = adapter->itableSize;
-        RuntimeAssert(interfaceVTableSize >= 0, "");
-        auto interfaceVTablesIt = interfaceVTables.find(interfaceId);
-        if (interfaceVTablesIt == interfaceVTables.end()) {
-          interfaceVTables.emplace(interfaceId, KStdVector<VTableElement>(interfaceVTableSize));
-        } else {
-          auto const& interfaceVTable = interfaceVTablesIt->second;
-          RuntimeAssert(interfaceVTable.size() == static_cast<size_t>(interfaceVTableSize), "");
-        }
-
+        addITable(interfaceId, adapter->itableSize);
         addToITable(adapter->interfaceId, adapter->itableIndex, adapter->kotlinImpl);
       }
     }
