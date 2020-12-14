@@ -24,6 +24,8 @@ interface ClangFlags : TargetableExternalStorage {
     val clangOptFlags get()     = targetList("clangOptFlags")
     val clangDebugFlags get()   = targetList("clangDebugFlags")
     val clangDynamicFlags get() = targetList("clangDynamicFlags")
+    val clangStaticFlags get() = targetList("clangStaticFlags")
+    val clangExecutableFlags get() = targetList("clangExecutableFlags")
 }
 
 interface LldFlags : TargetableExternalStorage {

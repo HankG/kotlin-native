@@ -74,9 +74,11 @@ internal class BitcodeCompiler(val context: Context) {
                 else -> configurables.clangNooptFlags
             })
             addNonEmpty(BitcodeEmbedding.getClangOptions(context.config))
-            if (determineLinkerOutput(context) == LinkerOutputKind.DYNAMIC_LIBRARY) {
-                addNonEmpty(configurables.clangDynamicFlags)
-            }
+            addNonEmpty(when (determineLinkerOutput(context)) {
+                LinkerOutputKind.DYNAMIC_LIBRARY -> configurables.clangDynamicFlags
+                LinkerOutputKind.STATIC_LIBRARY -> configurables.clangStaticFlags
+                LinkerOutputKind.EXECUTABLE -> configurables.clangExecutableFlags
+            })
             addNonEmpty(profilingFlags)
         }
         if (configurables is AppleConfigurables) {
